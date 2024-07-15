@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from db import Database
 from constants import *
 from waitress import serve
@@ -71,6 +71,13 @@ def update_model(model_type, id):
 def delete_model(model_type, id):
     """Deletes an existing model record based on its ID."""
     return db.delete_model(model_type, id)
+
+
+@app.route('/backup', methods=['GET'])
+def update():
+    db.create_new_backup()
+
+    return send_file('backup.db', as_attachment=True)
 
 
 # Run the Flask app

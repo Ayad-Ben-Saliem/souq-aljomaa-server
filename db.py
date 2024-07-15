@@ -430,3 +430,28 @@ class Database:
         except mysql.connector.Error as err:
             print("Database error while deleting model:", err)
             return jsonify({"error": DELETE_ERROR}), 500
+
+
+    def create_new_backup(self):
+        import os
+        import sqlite3
+        import pandas as pd
+
+        self.cursor.execute("SHOW TABLES")
+        tables = self.cursor.fetchall()
+
+        if os.path.exists('backup.db'):
+            os.remove('backup.db')
+
+        sqlite_conn = sqlite3.connect('backup.db')
+
+        for table in tables:
+            table_name = table['Tables_in_souq_aljomaa']
+
+            # Read the MySQL table into a pandas DataFrame
+            df = pd.read_sql(f"SELECT * FROM {table_name}", self.connection)
+
+            # Write the DataFrame to a SQLite table
+            df.to_sql(table_name, sqlite_conn, if_exists='replace', index=False)
+
+        sqlite_conn.close()
