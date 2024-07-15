@@ -1,9 +1,13 @@
 from flask import Flask, request, jsonify
 from db import Database
 from constants import *
+from waitress import serve
+
+def create_app():
+    return Flask(__name__);
 
 # Initialize Flask app
-app = Flask(__name__)
+app = create_app()
 
 db = Database()
 
@@ -70,6 +74,13 @@ def delete_model(model_type, id):
 
 
 # Run the Flask app
-if __name__ == "__main__":
+def run():
   db.initialize()
-  app.run(debug=True)
+  serve(app, host='0.0.0.0', port=5000)
+#   app.run(host='0.0.0.0', port=5000)
+#   app.run(debug=True)
+
+
+
+if __name__ == "__main__":
+    run()

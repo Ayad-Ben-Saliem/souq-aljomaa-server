@@ -15,6 +15,8 @@ class Database:
             user = "root",
             host = "localhost",
             password = "A5355850d.",
+            charset = 'utf8mb4',
+            collation = 'utf8mb4_general_ci'
         )
         cursor = connection.cursor()
         cursor.execute("CREATE DATABASE IF NOT EXISTS souq_aljomaa")
