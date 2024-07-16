@@ -239,7 +239,7 @@ class Database:
 
 
     def search(self, limit = 10, offset = 0, text = None) -> dict[str, list[dict[str, any]]] :
-        if not text: return {}
+        if text == None: return {}
 
         if not limit: limit = 10
         if offset is None: offset = 0
