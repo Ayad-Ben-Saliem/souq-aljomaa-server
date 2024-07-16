@@ -75,7 +75,8 @@ def delete_model(model_type, id):
 
 @app.route('/backup', methods=['GET'])
 def update():
-    db.create_new_backup()
+    password = request.get_json()['password']
+    db.create_new_backup(password)
 
     return send_file('backup.db', as_attachment=True)
 
@@ -83,8 +84,8 @@ def update():
 # Run the Flask app
 def run():
   db.initialize()
-  serve(app, host='0.0.0.0', port=5000)
-#   app.run(host='0.0.0.0', port=5000, debug=True)
+#   serve(app, host='0.0.0.0', port=5000)
+  app.run(host='0.0.0.0', port=5000, debug=True)
 
 
 

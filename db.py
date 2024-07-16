@@ -432,9 +432,10 @@ class Database:
             return jsonify({"error": DELETE_ERROR}), 500
 
 
-    def create_new_backup(self):
+    def create_new_backup(self, password = None):
         import os
         import sqlite3
+        import sqlcipher3
         import pandas as pd
 
         self.cursor.execute("SHOW TABLES")
@@ -443,7 +444,12 @@ class Database:
         if os.path.exists('backup.db'):
             os.remove('backup.db')
 
-        sqlite_conn = sqlite3.connect('backup.db')
+        if password:
+            # If your SQLCipher database requires a password, use it like this
+            sqlite_conn = sqlcipher3.connect('backup.db')
+            sqlite_conn.execute(f"PRAGMA key='{password}'")
+        else:
+            sqlite_conn = sqlite3.connect('backup.db')
 
         for table in tables:
             table_name = table['Tables_in_souq_aljomaa']
@@ -454,4 +460,5 @@ class Database:
             # Write the DataFrame to a SQLite table
             df.to_sql(table_name, sqlite_conn, if_exists='replace', index=False)
 
+        sqlite_conn.commit()
         sqlite_conn.close()
