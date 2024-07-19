@@ -129,9 +129,9 @@ def update_user(id):
                 redis_store.delete(jti)
 
             return jsonify(user), 201
-        return jsonify({"error": ERROR_UPDATE_USER}), 500
+        return jsonify({"error": ERROR_UPDATE_USER}), 400
     except Exception as e:
-        return jsonify({"error", str(e)}), 500
+        return jsonify({"error": str(e)}), 500
         
 
 @app.route("/users/<int:id>", methods=["DELETE"])
@@ -158,8 +158,6 @@ def get_model(model_type, id):
 def get_models():
     """Retrieves a specific model data by its ID."""
 
-    x = dict()
-    x.get()
     models_ids = request.json.get('modelsIds')
     result = dict()
     for model_type, model_ids in models_ids.items():
@@ -211,7 +209,7 @@ def update_model(model_type, id):
             return jsonify(model), 201
         return jsonify({"error": ERROR_UPDATE_MODEL}), 500
     except Exception as e:
-        return jsonify({"error", str(e)}), 500
+        return jsonify({"error": str(e)}), 500
         
 
 @app.route("/models/<model_type>/<int:id>", methods=["DELETE"])
