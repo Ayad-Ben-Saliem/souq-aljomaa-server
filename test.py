@@ -173,7 +173,7 @@ if __name__ == '__main__':
     #         'username': 'ayad',
     #         'password': '1234',
     #     })
-    get_user(2)
+    get_user(1)
     # get_users(ids=[])
     # update_user()
     # delete_user(2)
