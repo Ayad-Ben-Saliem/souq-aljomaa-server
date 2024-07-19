@@ -1,5 +1,7 @@
 .venv/
 __pycache__/
 
+database1.db
+database2.db
 backup.db
 token.jwt
