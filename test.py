@@ -18,7 +18,8 @@ def login(username: str, password: str):
         }
     )
     print(response)
-    print(response.json())
+    if 300 > response.status_code >= 200:
+        print(response.json())
 
     if response.status_code == 200:
         with open('token.jwt', 'w') as f:
@@ -31,7 +32,8 @@ def auto_login():
         headers={'Authorization': f'Bearer {token}'}
     )
     print(response)
-    print(response.json())
+    if 300 > response.status_code >= 200:
+        print(response.json())
 
     if response.status_code == 200:
         with open('token.jwt', 'w') as f:
@@ -44,7 +46,8 @@ def logout() :
         headers={'Authorization': f'Bearer {token}'},
     )
     print(response)
-    print(response.json())
+    if 300 > response.status_code >= 200:
+        print(response.json())
 
     if response.status_code == 200:
         if os.path.exists('token.jwt'):
@@ -68,7 +71,8 @@ def get_models(modelsIds: dict[str, list[int]] = None) -> requests.Response:
     )
 
     print(response)
-    print(response.json())
+    if 300 > response.status_code >= 200:
+        print(response.json())
 
     return response
 
@@ -88,7 +92,8 @@ def create_user(data: dict[str, any] = None) -> requests.Response:
     )
     
     print(response)
-    print(response.json())
+    if 300 > response.status_code >= 200:
+        print(response.json())
 
     return response
 
@@ -101,7 +106,8 @@ def get_user(id: int) -> requests.Response:
     )
     
     print(response)
-    print(response.json())
+    if 300 > response.status_code >= 200:
+        print(response.json())
 
     return response
 
@@ -114,18 +120,22 @@ def get_users(ids: list[int] = None) -> requests.Response:
     )
     
     print(response)
-    print(response.json())
+    if 300 > response.status_code >= 200:
+        print(response.json())
 
     return response
 
 
-def update_user(id: int, data: dict[str, any] = None) -> requests.Response:
-    if not data:
+def update_user(id: int = None, data: dict[str, any] = None) -> requests.Response:
+    if id is None: id = 1
+
+    if data is None:
         data = {
             'name': 'Admin',
             'username': 'admin',
             'password': '1234',
         }
+    
     response = requests.put(
         f'http://localhost:5000/users/{id}',
         headers={'Authorization': f'Bearer {token}'},
@@ -133,7 +143,8 @@ def update_user(id: int, data: dict[str, any] = None) -> requests.Response:
     )
     
     print(response)
-    print(response.json())
+    if 300 > response.status_code >= 200:
+        print(response.json())
 
     return response
 
@@ -145,7 +156,8 @@ def delete_user(id: int) -> requests.Response:
     )
     
     print(response)
-    print(response.json())
+    if 300 > response.status_code >= 200:
+        print(response.json())
 
     return response
 
@@ -153,7 +165,7 @@ def delete_user(id: int) -> requests.Response:
 
 if __name__ == '__main__':
     # login(username='admin', password='1234')
-    auto_login()
+    # auto_login()
     # logout()
     # get_models()
     # create_user(data={
@@ -161,7 +173,7 @@ if __name__ == '__main__':
     #         'username': 'ayad',
     #         'password': '1234',
     #     })
-    # get_user(2)
+    get_user(2)
     # get_users(ids=[])
-    # update_user(2)
-    # delete_user(3)
+    # update_user()
+    # delete_user(2)
