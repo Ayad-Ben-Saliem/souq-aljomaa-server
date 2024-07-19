@@ -2,6 +2,7 @@ from flask import jsonify
 import mysql.connector
 import mysql.connector.cursor
 from constants import *
+import hashlib
 
 from typing import Union
 
@@ -39,6 +40,24 @@ class Database:
 
 
     def initialize_tabels(self):   
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Users (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(255) NOT NULL,
+                username VARCHAR(255) NOT NULL UNIQUE,
+                password TEXT NOT NULL,
+                isAdmin BOOL DEFAULT FALSE,
+                modelsModifier BOOL DEFAULT FALSE
+            )
+        ''');
+
+        # Insert the admin user if the Users table has zero rows
+        self.cursor.execute(f'''
+            INSERT INTO Users (name, username, password, isAdmin, modelsModifier)
+            SELECT 'Admin', 'admin', '{self._hash_password('1234')}', TRUE, TRUE
+            WHERE (SELECT COUNT(*) FROM Users) = 0;
+        ''');   
+
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS Model1 (
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
@@ -184,23 +203,142 @@ class Database:
         ''')
 
 
-    def get_model(self, model_type: str, id: int) -> dict[str, any]:
+    # Users related methods
+
+
+    def _hash_password(self, password: str):
+        hashed_password = hashlib.sha512(f'manassa{password}.ly'.encode())
+        return hashed_password.hexdigest()
+
+
+    def login(self, username: str, password: str) -> Union[dict[str, any], None]:
+        query = f"SELECT * FROM Users WHERE username = %s AND password = %s"
+        self.cursor.execute(query, (username, self._hash_password(password)))
+        return self.cursor.fetchone()
+
+
+    def get_user(self, id: int) -> Union[dict[str, any], None]:
+        query = f"SELECT * FROM Users WHERE id = %s"
+        self.cursor.execute(query, (id,))
+        return self.cursor.fetchone()
+    
+
+    def get_user_by_username(self, username: str) -> Union[dict[str, any], None]:
+        query = f"SELECT * FROM Users WHERE username = %s"
+        self.cursor.execute(query, (username,))
+        return self.cursor.fetchone()
+
+
+    def get_users(self, ids: list[int]) -> list[dict[str, any]]:
+        query = 'SELECT * FROM Users'
+        if ids:
+            # Create a comma-separated list of placeholders
+            placeholder_list = ', '.join(['%s'] * len(ids))
+            query += f' WHERE id IN ({placeholder_list})'
+
+        self.cursor.execute(query, tuple(ids if ids else []))
+        return self.cursor.fetchall()
+
+
+    def save_user(self, data) -> Union[dict[str, any], None]:
+        """Saves a new user record based on the provided data.
+        Constructs the appropriate SQL query dynamically based on schema."""
+
+        if 'id' in data:
+            del data['id']
+
+        data['password'] = self._hash_password(data['password'])
+
+        # Construct the SQL query dynamically based on data
+        keys = data.keys()
+        values = data.values()
+        parameters = ", ".join([key for key in keys])
+        arguments = ('%s, ' * len(keys))[0 : -2]
+        query = f'INSERT INTO Users ({parameters}) VALUES ({arguments})'
+
+        try:
+            # Execute the query with combined data
+            self.cursor.execute(query, tuple(values))
+            self.connection.commit()
+            id = self.cursor.lastrowid
+            
+            # Return the saved model data
+            return self.get_user(id)
+        except mysql.connector.Error as err:
+            print("Database error while saving user:", err)
+            raise Exception(err.msg)
+
+
+    def update_user(self, id: int, data: dict[str, any]) -> Union[dict[str, any], None]:
+        """Updates an existing model record based on the provided data."""
+
+        if 'id' in data:
+            if id != data['id']:
+                raise 'id != data["id"]'
+            del data['id']
+
+        data['password'] = self._hash_password(data['password'])
+
+        # Construct the SQL query dynamically based on data
+        keys = data.keys()
+        values = data.values()
+
+        parameters = ", ".join([f'{key} = %s' for key in keys])
+        query = f'UPDATE Users SET {parameters} WHERE id = {id}'
+
+        try:
+            # Execute the query with combined data
+            self.cursor.execute(query, tuple(values))
+            self.connection.commit()
+            
+            # Return the saved model data
+            return self.get_user(id)
+        except mysql.connector.Error as err:
+            print("Database error while updating user:", err)
+            raise Exception(err.msg)
+
+
+    def delete_user(self, id):
+        """Deletes an existing model record based on its ID."""
+
+        query = f'DELETE FROM Users WHERE id = {id}'
+
+        try:
+            # Execute the delete query
+            self.cursor.execute(query)
+            self.connection.commit()
+
+            if self.cursor.rowcount > 0:
+                # Model deleted successfully
+                return jsonify({'message': 'User deleted successfully'})
+            else:
+                return jsonify({"error": MODEL_NOT_FOUND}), 404  # Model not found
+        except mysql.connector.Error as err:
+            print("Database error while deleting user:", err)
+            return jsonify({"error": DELETE_ERROR}), 500
+
+
+    # Models related methods
+
+
+    def get_model(self, model_type: str, id: int) -> Union[dict[str, any], None]:
         query = f"SELECT * FROM {model_type} WHERE id = %s"
         self.cursor.execute(query, (id,))
         return self.cursor.fetchone()
         
 
     def get_models(self, model_type: str, ids: list[int]) -> list[dict[str, any]]:
-        # Create a comma-separated list of placeholders
-        placeholder_list = ', '.join(['%s'] * len(ids))
+        query = f"SELECT * FROM {model_type}"
+        if ids:
+            # Create a comma-separated list of placeholders
+            placeholder_list = ', '.join(['%s'] * len(ids))
+            query += f' WHERE id IN ({placeholder_list})'
 
-        query = f"SELECT * FROM {model_type} WHERE id IN ({placeholder_list})"
-        self.cursor.execute(query, tuple(ids))
+        self.cursor.execute(query, tuple(ids if ids else []))
         return self.cursor.fetchall()
         
 
-
-    def _whereQuery(self, fields_name: list[str], search_text) -> str:
+    def _where_query(self, fields_name: list[str], search_text) -> str:
         if not fields_name or not search_text: return ''
 
         result = 'WHERE '
@@ -215,6 +353,7 @@ class Database:
         result = result[0: len(result) - 5];
         return result;
 
+    
     def split_ids(self, result) -> dict[str, list[int]]:
         """
         Splits IDs from a database query result into a dictionary with table names as keys and lists of IDs as values.
@@ -235,7 +374,6 @@ class Database:
                 ids.setdefault(table_name, []).append(row.get('id'))  # Use setdefault for efficient dictionary creation
 
         return ids
-
 
 
     def search(self, limit = 10, offset = 0, text = None) -> dict[str, list[dict[str, any]]] :
@@ -320,25 +458,25 @@ class Database:
             SELECT id, at, table_name
             FROM (
                 SELECT id, at, 'Model1' AS table_name FROM Model1
-                {self._whereQuery(model1_fields, text)}
+                {self._where_query(model1_fields, text)}
                 UNION ALL
                 SELECT id, at, 'Model2' AS table_name FROM Model2 where2
-                {self._whereQuery(model234_fields, text)}
+                {self._where_query(model234_fields, text)}
                 UNION ALL
                 SELECT id, at, 'Model3' AS table_name FROM Model3 where3
-                {self._whereQuery(model234_fields, text)}
+                {self._where_query(model234_fields, text)}
                 UNION ALL
                 SELECT id, at, 'Model4' AS table_name FROM Model4 where4
-                {self._whereQuery(model234_fields, text)}
+                {self._where_query(model234_fields, text)}
                 UNION ALL
                 SELECT id, at, 'Model5' AS table_name FROM Model5 where5
-                {self._whereQuery(model5_fields, text)}
+                {self._where_query(model5_fields, text)}
                 UNION ALL
                 SELECT id, at, 'Model6' AS table_name FROM Model6 where6
-                {self._whereQuery(model6_fields, text)}
+                {self._where_query(model6_fields, text)}
                 UNION ALL
                 SELECT id, at, 'Model7' AS table_name FROM Model7 where7
-                {self._whereQuery(model7_fields, text)}
+                {self._where_query(model7_fields, text)}
             ) AS combined_data
             ORDER BY at DESC
             LIMIT {limit} OFFSET {offset}
@@ -354,19 +492,19 @@ class Database:
             return models
 
 
-    def save_model(self, model_data, model_type) -> Union[dict[str, any], None]:
+    def save_model(self, data, model_type) -> Union[dict[str, any], None]:
         """Saves a new model record based on the provided data and model type.
         Constructs the appropriate SQL query dynamically based on model schema."""
 
         if model_type not in ['Model1', 'Model2', 'Model3', 'Model4', 'Model5', 'Model6', 'Model7']:
             return jsonify({"error": INVALID_TYPE}), 400
 
-        if 'id' in model_data:
-            del model_data['id']
+        if 'id' in data:
+            del data['id']
 
         # Construct the SQL query dynamically based on data
-        keys = model_data.keys()
-        values = model_data.values()
+        keys = data.keys()
+        values = data.values()
         parameters = ", ".join([key for key in keys])
         arguments = ('%s, ' * len(keys))[0 : -2]
         query = f'INSERT INTO {model_type} ({parameters}) VALUES ({arguments})'
@@ -381,19 +519,23 @@ class Database:
             return self.get_model(model_type, model_id)
         except mysql.connector.Error as err:
             print("Database error while saving model:", err)
+            raise Exception(err.msg)
 
 
-    def update_model(self, model_data, model_type, id) -> Union[dict[str, any], None]:
+    def update_model(self, id: int, model_type: str, data: dict[str, any]) -> Union[dict[str, any], None]:
         """Updates an existing model record based on the provided data."""
 
         if model_type not in ['Model1', 'Model2', 'Model3', 'Model4', 'Model5', 'Model6', 'Model7']:
             return jsonify({"error": self.INVALID_TYPE}), 400
 
-        del model_data['id']
+        if 'id' in data:
+            if id != data['id']:
+                raise 'id != data["id"]'
+            del data['id']
 
         # Construct the SQL query dynamically based on data
-        keys = model_data.keys()
-        values = model_data.values()
+        keys = data.keys()
+        values = data.values()
 
         parameters = ", ".join([f'{key} = %s' for key in keys])
         query = f'UPDATE {model_type} SET {parameters} WHERE id = {id}'
@@ -406,7 +548,8 @@ class Database:
             # Return the saved model data
             return self.get_model(model_type, id)
         except mysql.connector.Error as err:
-            print("Database error while saving model:", err)
+            print("Database error while updating model:", err)
+            raise Exception(err.msg)
 
 
     def delete_model(self, model_type, id):
