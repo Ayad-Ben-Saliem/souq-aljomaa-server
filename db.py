@@ -190,8 +190,8 @@ class Database:
                 familyHeadName VARCHAR(255) NOT NULL,
                 malesCount INTEGER NOT NULL,
                 femalesCount INTEGER NOT NULL,
-                widows INTEGER,
-                divorced INTEGER,
+                widows TEXT,
+                divorced TEXT,
                 disabilities TEXT,
                 lowIncome TEXT,
                 unemployed TEXT,
@@ -460,22 +460,22 @@ class Database:
                 SELECT id, at, 'Model1' AS table_name FROM Model1
                 {self._where_query(model1_fields, text)}
                 UNION ALL
-                SELECT id, at, 'Model2' AS table_name FROM Model2 where2
+                SELECT id, at, 'Model2' AS table_name FROM Model2
                 {self._where_query(model234_fields, text)}
                 UNION ALL
-                SELECT id, at, 'Model3' AS table_name FROM Model3 where3
+                SELECT id, at, 'Model3' AS table_name FROM Model3
                 {self._where_query(model234_fields, text)}
                 UNION ALL
-                SELECT id, at, 'Model4' AS table_name FROM Model4 where4
+                SELECT id, at, 'Model4' AS table_name FROM Model4
                 {self._where_query(model234_fields, text)}
                 UNION ALL
-                SELECT id, at, 'Model5' AS table_name FROM Model5 where5
+                SELECT id, at, 'Model5' AS table_name FROM Model5
                 {self._where_query(model5_fields, text)}
                 UNION ALL
-                SELECT id, at, 'Model6' AS table_name FROM Model6 where6
+                SELECT id, at, 'Model6' AS table_name FROM Model6
                 {self._where_query(model6_fields, text)}
                 UNION ALL
-                SELECT id, at, 'Model7' AS table_name FROM Model7 where7
+                SELECT id, at, 'Model7' AS table_name FROM Model7
                 {self._where_query(model7_fields, text)}
             ) AS combined_data
             ORDER BY at DESC
