@@ -25,6 +25,13 @@ redis_store = FlaskRedis(app)
 db = Database()
 
 
+@app.route('/', methods=['GET'])
+def check():
+    """Check if server running."""
+    return 'OK', 200
+
+
+
 # Auth API endpoints
 @app.route('/login', methods=['POST'])
 def login():
@@ -231,8 +238,8 @@ def backup():
 # Run the Flask app
 def run():
     db.initialize()
-    serve(app, host='0.0.0.0', port=5000)
-    # app.run(host='0.0.0.0', port=5000, debug=True)
+    # serve(app, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
 
 
 
