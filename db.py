@@ -13,9 +13,9 @@ class Database:
 
     def create_db_if_not_exist(self):
         connection = mysql.connector.connect(
-            user = "root",
+            user = "manassa",
             host = "localhost",
-            password = "A5355850d.",
+            password = "M@na55a.ly",
             charset = 'utf8mb4',
             collation = 'utf8mb4_general_ci'
         )
@@ -29,9 +29,9 @@ class Database:
         # Connect to MySQL
         self.create_db_if_not_exist()
         self.connection = mysql.connector.connect(
-            user = "root",
+            user = "manassa",
             host = "localhost",
-            password = "A5355850d.",
+            password = "M@na55a.ly",
             database = "souq_aljomaa"
         )
         from mysql.connector.cursor import MySQLCursorDict
