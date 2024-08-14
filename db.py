@@ -400,9 +400,11 @@ class Database:
         return self.cursor.fetchall()
         
 
-    def _where_query(self, fields_name: list[str], search_text) -> str:
+    def _where_query(self, fields_name: list[str], search_text: str, model_title: str) -> str:
         if not fields_name or not search_text: return ''
 
+        fields_name.append(model_title)
+        
         result = 'WHERE '
         for txt in search_text.split(' '):
             result += '(';
@@ -444,6 +446,14 @@ class Database:
 
         if not limit: limit = 10
         if offset is None: offset = 0
+
+        model1_title = '"إفادة بعدم الزواج بغير ليبية"'
+        model2_title = '"إفادة بعدم ملكية مسكن"'
+        model3_title = '"إفادة بحسن السيرة والسلوك"'
+        model4_title = '"إفادة بشأن واقعة"'
+        model5_title = '"إفادة بالإقامة"'
+        model6_title = '"كشف بحصر الأنشطة التجارية"'
+        model7_title = '"نموذج حصر العائلات الليبية"'
 
         model1_fields = [
             'locality',
@@ -521,29 +531,30 @@ class Database:
             SELECT id, at, table_name
             FROM (
                 SELECT id, at, 'Model1' AS table_name FROM Model1
-                {self._where_query(model1_fields, text)}
+                {self._where_query(model1_fields, text, model1_title)}
                 UNION ALL
                 SELECT id, at, 'Model2' AS table_name FROM Model2
-                {self._where_query(model234_fields, text)}
+                {self._where_query(model234_fields, text, model2_title)}
                 UNION ALL
                 SELECT id, at, 'Model3' AS table_name FROM Model3
-                {self._where_query(model234_fields, text)}
+                {self._where_query(model234_fields, text, model3_title)}
                 UNION ALL
                 SELECT id, at, 'Model4' AS table_name FROM Model4
-                {self._where_query(model234_fields, text)}
+                {self._where_query(model234_fields, text, model4_title)}
                 UNION ALL
                 SELECT id, at, 'Model5' AS table_name FROM Model5
-                {self._where_query(model5_fields, text)}
+                {self._where_query(model5_fields, text, model5_title)}
                 UNION ALL
                 SELECT id, at, 'Model6' AS table_name FROM Model6
-                {self._where_query(model6_fields, text)}
+                {self._where_query(model6_fields, text, model6_title)}
                 UNION ALL
                 SELECT id, at, 'Model7' AS table_name FROM Model7
-                {self._where_query(model7_fields, text)}
+                {self._where_query(model7_fields, text, model7_title)}
             ) AS combined_data
             ORDER BY at DESC
             LIMIT {limit} OFFSET {offset}
         '''
+
         self.cursor.execute(query)
         result = self.cursor.fetchall()
         if result:
