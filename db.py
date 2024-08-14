@@ -1,44 +1,97 @@
 from flask import jsonify
 import mysql.connector
 import mysql.connector.cursor
+from mysql.connector import pooling
 from constants import *
-import hashlib
 
+import hashlib
 from typing import Union
+from functools import wraps
+
 
 class Database:
 
-    connection = None
+    pool: pooling.MySQLConnectionPool = None
+    connection: pooling.PooledMySQLConnection = None
     cursor = None
+    _dbconfig = {
+        'user': "manassa",
+        'host': "localhost",
+        'password': "M@na55a.ly",
+        'database': "souq_aljomaa"
+    }
+
+    def initialize_mysql_pool(self):
+        try:
+            self.pool = pooling.MySQLConnectionPool(
+                pool_name="mypool",
+                pool_size=5,
+                **self._dbconfig
+            )
+        except mysql.connector.Error as err:
+            print(f"Error creating pool: {err}")
+
 
     def create_db_if_not_exist(self):
-        connection = mysql.connector.connect(
-            user = "manassa",
-            host = "localhost",
-            password = "M@na55a.ly",
-            charset = 'utf8mb4',
-            collation = 'utf8mb4_general_ci'
-        )
-        cursor = connection.cursor()
-        cursor.execute("CREATE DATABASE IF NOT EXISTS souq_aljomaa")
-        cursor.close()
-        connection.close()
+        try:
+            connection = mysql.connector.connect(
+                user = "manassa",
+                host = "localhost",
+                password = "M@na55a.ly",
+            )
+            cursor = connection.cursor()
+            cursor.execute("CREATE DATABASE IF NOT EXISTS souq_aljomaa")
+            cursor.close()
+            connection.close()
+        except mysql.connector.Error as err:
+            print(f"Error connecting to MySQL: {err}")
+            return None
+
+
+    def establish_mysql_connection(self):
+        if self.pool is None:
+            self.initialize_mysql_pool()
+        else:
+            if self.connection is not None and self.connection.is_connected():
+                return self.connection;
+
+        if self.pool is None: 
+            return None
+
+        try:
+            self.connection = self.pool.get_connection()
+            self.cursor = self.connection.cursor(dictionary=True)            
+        except mysql.connector.Error as err:
+            print(f"Error connecting to MySQL: {err}")
+
+    
+    def check_mysql_connection(method):
+        @wraps(method)
+        def wrapper(self, *args, **kwargs):
+            if not self.connection or not self.connection.is_connected():
+                print("MySQL is not connected. Returning None.")
+                self.initialize_mysql_connection()  # Try to reconnect if possible
+                if not self.connection or not self.connection.is_connected():
+                    return None
+                
+            return method(self, *args, **kwargs)
+        return wrapper
 
 
     def initialize(self):
-        # Connect to MySQL
         self.create_db_if_not_exist()
-        self.connection = mysql.connector.connect(
-            user = "manassa",
-            host = "localhost",
-            password = "M@na55a.ly",
-            database = "souq_aljomaa"
-        )
-        from mysql.connector.cursor import MySQLCursorDict
-        self.cursor = self.connection.cursor(dictionary=True)
-        self.initialize_tabels()
+        self.initialize_mysql_connection()
 
 
+    def initialize_mysql_connection(self):
+        if self.pool is None or self.connection is None or not self.connection.is_connected():
+            self.establish_mysql_connection()
+
+        if self.pool is not None and self.connection is not None and self.connection.is_connected():
+            self.initialize_tabels()
+
+
+    @check_mysql_connection
     def initialize_tabels(self):   
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS Users (
@@ -49,7 +102,7 @@ class Database:
                 isAdmin BOOL DEFAULT FALSE,
                 modelsModifier BOOL DEFAULT FALSE
             )
-        ''');
+        ''')
 
         # Insert the admin user if the Users table has zero rows
         self.cursor.execute(f'''
@@ -211,24 +264,28 @@ class Database:
         return hashed_password.hexdigest()
 
 
+    @check_mysql_connection
     def login(self, username: str, password: str) -> Union[dict[str, any], None]:
         query = f"SELECT * FROM Users WHERE username = %s AND password = %s"
         self.cursor.execute(query, (username, self._hash_password(password)))
         return self.cursor.fetchone()
 
 
+    @check_mysql_connection
     def get_user(self, id: int) -> Union[dict[str, any], None]:
         query = f"SELECT * FROM Users WHERE id = %s"
         self.cursor.execute(query, (id,))
         return self.cursor.fetchone()
     
 
+    @check_mysql_connection
     def get_user_by_username(self, username: str) -> Union[dict[str, any], None]:
         query = f"SELECT * FROM Users WHERE username = %s"
         self.cursor.execute(query, (username,))
         return self.cursor.fetchone()
 
 
+    @check_mysql_connection
     def get_users(self, ids: list[int]) -> list[dict[str, any]]:
         query = 'SELECT * FROM Users'
         if ids:
@@ -240,6 +297,7 @@ class Database:
         return self.cursor.fetchall()
 
 
+    @check_mysql_connection
     def save_user(self, data) -> Union[dict[str, any], None]:
         """Saves a new user record based on the provided data.
         Constructs the appropriate SQL query dynamically based on schema."""
@@ -269,6 +327,7 @@ class Database:
             raise Exception(err.msg)
 
 
+    @check_mysql_connection
     def update_user(self, id: int, data: dict[str, any]) -> Union[dict[str, any], None]:
         """Updates an existing model record based on the provided data."""
 
@@ -298,6 +357,7 @@ class Database:
             raise Exception(err.msg)
 
 
+    @check_mysql_connection
     def delete_user(self, id):
         """Deletes an existing model record based on its ID."""
 
@@ -321,12 +381,14 @@ class Database:
     # Models related methods
 
 
+    @check_mysql_connection
     def get_model(self, model_type: str, id: int) -> Union[dict[str, any], None]:
         query = f"SELECT * FROM {model_type} WHERE id = %s"
         self.cursor.execute(query, (id,))
         return self.cursor.fetchone()
         
 
+    @check_mysql_connection
     def get_models(self, model_type: str, ids: list[int]) -> list[dict[str, any]]:
         query = f"SELECT * FROM {model_type}"
         if ids:
@@ -376,6 +438,7 @@ class Database:
         return ids
 
 
+    @check_mysql_connection
     def search(self, limit = 10, offset = 0, text = None) -> dict[str, list[dict[str, any]]] :
         if text == None: return {}
 
@@ -492,6 +555,7 @@ class Database:
             return models
 
 
+    @check_mysql_connection
     def save_model(self, data, model_type) -> Union[dict[str, any], None]:
         """Saves a new model record based on the provided data and model type.
         Constructs the appropriate SQL query dynamically based on model schema."""
@@ -522,6 +586,7 @@ class Database:
             raise Exception(err.msg)
 
 
+    @check_mysql_connection
     def update_model(self, id: int, model_type: str, data: dict[str, any]) -> Union[dict[str, any], None]:
         """Updates an existing model record based on the provided data."""
 
@@ -552,6 +617,7 @@ class Database:
             raise Exception(err.msg)
 
 
+    @check_mysql_connection
     def delete_model(self, model_type, id):
         """Deletes an existing model record based on its ID."""
 
@@ -575,6 +641,7 @@ class Database:
             return jsonify({"error": DELETE_ERROR}), 500
 
 
+    @check_mysql_connection
     def create_new_backup(self, password = None):
         import os
         import sqlite3
