@@ -77,6 +77,21 @@ def get_models(modelsIds: dict[str, list[int]] = None) -> requests.Response:
     return response
 
 
+
+def search(search_text: str, limit: int = 10, offset: int = 0) -> requests.Response:
+    response = requests.get(
+        'http://localhost:5000/search',
+        headers={'Authorization': f'Bearer {token}'},
+        params={'search_text': search_text, 'limit': limit, 'offset': offset}
+    )
+
+    print(response)
+    if 300 > response.status_code >= 200:
+        print(response.json())
+
+    return response
+
+
 def create_user(data: dict[str, any] = None) -> requests.Response:
     if not data:
         data = {
@@ -168,6 +183,7 @@ if __name__ == '__main__':
     # auto_login()
     # logout()
     # get_models()
+    search(search_text='زواج')
     # create_user(data={
     #         'name': 'Ayad Ben',
     #         'username': 'ayad',
