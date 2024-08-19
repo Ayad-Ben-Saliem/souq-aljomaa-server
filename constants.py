@@ -13,3 +13,6 @@ USER_NOT_FOUND = "User with the provided ID was not found"
 ERROR_SAVE_USER = "Failed to save user data"
 ERROR_UPDATE_USER = "Failed to update user data"
 ERROR_DELETE_USER = "Failed to delete user data"
+
+
+UPLOAD_FOLDER = "uploads/"

@@ -1,13 +1,17 @@
-from flask import jsonify
+from flask import current_app, jsonify, url_for
 import mysql.connector
 import mysql.connector.cursor
 from mysql.connector import pooling
 from constants import *
 
+import datetime
 import hashlib
+import json
+import os
 from typing import Union
 from functools import wraps
 
+from werkzeug.datastructures.file_storage import FileStorage
 
 class Database:
 
@@ -29,7 +33,7 @@ class Database:
                 **self._dbconfig
             )
         except mysql.connector.Error as err:
-            print(f"Error creating pool: {err}")
+            print("Error creating pool:", err)
 
 
     def create_db_if_not_exist(self):
@@ -44,7 +48,7 @@ class Database:
             cursor.close()
             connection.close()
         except mysql.connector.Error as err:
-            print(f"Error connecting to MySQL: {err}")
+            print("Error connecting to MySQL:", err)
             return None
 
 
@@ -62,15 +66,15 @@ class Database:
             self.connection = self.pool.get_connection()
             self.cursor = self.connection.cursor(dictionary=True)            
         except mysql.connector.Error as err:
-            print(f"Error connecting to MySQL: {err}")
+            print("Error connecting to MySQL:", err)
 
     
     def check_mysql_connection(method):
         @wraps(method)
         def wrapper(self, *args, **kwargs):
             if not self.connection or not self.connection.is_connected():
-                print("MySQL is not connected. Returning None.")
-                self.initialize_mysql_connection()  # Try to reconnect if possible
+                print("MySQL is not connected. Trying to reconnect ...")
+                self.initialize_mysql_connection()
                 if not self.connection or not self.connection.is_connected():
                     return None
                 
@@ -115,7 +119,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS Model1 (
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 at VARCHAR(255) NOT NULL,
-                scanner TEXT,
+                documents TEXT,
                 locality VARCHAR(255) NOT NULL,
                 witness VARCHAR(255) NOT NULL,
                 responsible VARCHAR(255) NOT NULL,
@@ -135,7 +139,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS Model2 (
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 at VARCHAR(255) NOT NULL,
-                scanner TEXT,
+                documents TEXT,
                 locality VARCHAR(255) NOT NULL,
                 witness VARCHAR(255) NOT NULL,
                 responsible VARCHAR(255) NOT NULL,
@@ -155,7 +159,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS Model3 (
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 at VARCHAR(255) NOT NULL,
-                scanner TEXT,
+                documents TEXT,
                 locality VARCHAR(255) NOT NULL,
                 witness VARCHAR(255) NOT NULL,
                 responsible VARCHAR(255) NOT NULL,
@@ -175,7 +179,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS Model4 (
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 at VARCHAR(255) NOT NULL,
-                scanner TEXT,
+                documents TEXT,
                 locality VARCHAR(255) NOT NULL,
                 witness VARCHAR(255) NOT NULL,
                 responsible VARCHAR(255) NOT NULL,
@@ -195,7 +199,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS Model5 (
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 at VARCHAR(255) NOT NULL,
-                scanner TEXT,
+                documents TEXT,
                 locality VARCHAR(255) NOT NULL,
                 witness VARCHAR(255) NOT NULL,
                 responsible VARCHAR(255) NOT NULL,
@@ -220,7 +224,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS Model6 (
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 at VARCHAR(255) NOT NULL,
-                scanner TEXT,
+                documents TEXT,
                 ownerName VARCHAR(255) NOT NULL,
                 ownerPhone VARCHAR(255) NOT NULL,
                 tenantName VARCHAR(255) NOT NULL,
@@ -236,7 +240,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS Model7 (
                 id INTEGER PRIMARY KEY AUTO_INCREMENT,
                 at VARCHAR(255) NOT NULL,
-                scanner TEXT,
+                documents TEXT,
                 streetNo VARCHAR(255) NOT NULL,
                 buildingNo VARCHAR(255) NOT NULL,
                 registrationNo VARCHAR(255) NOT NULL,
@@ -375,7 +379,7 @@ class Database:
                 return jsonify({"error": MODEL_NOT_FOUND}), 404  # Model not found
         except mysql.connector.Error as err:
             print("Database error while deleting user:", err)
-            return jsonify({"error": DELETE_ERROR}), 500
+            return jsonify({"error": ERROR_DELETE_USER}), 500
 
 
     # Models related methods
@@ -385,7 +389,10 @@ class Database:
     def get_model(self, model_type: str, id: int) -> Union[dict[str, any], None]:
         query = f"SELECT * FROM {model_type} WHERE id = %s"
         self.cursor.execute(query, (id,))
-        return self.cursor.fetchone()
+        model = self.cursor.fetchone()
+        if model:
+            self._resolve_model_documents(model)
+        return model
         
 
     @check_mysql_connection
@@ -397,7 +404,9 @@ class Database:
             query += f' WHERE id IN ({placeholder_list})'
 
         self.cursor.execute(query, tuple(ids if ids else []))
-        return self.cursor.fetchall()
+        models = self.cursor.fetchall()
+        self._resolve_models_documents(models)
+        return models
         
 
     def _where_query(self, fields_name: list[str], search_text: str, model_title: str) -> str:
@@ -559,15 +568,74 @@ class Database:
         result = self.cursor.fetchall()
         if result:
             models_ids = self.split_ids(result);
-            models = {}
+            all_models = {}
             for model_type, model_ids in models_ids.items():
-                models[model_type] = self.get_models(model_type, model_ids)
+                all_models[model_type] = self.get_models(model_type, model_ids)
 
-            return models
+            return all_models
+
+
+    def _resolve_models_documents(self, models: list[dict[str, any]]) -> list[dict[str, any]]:
+        for model in models:
+            self._resolve_model_documents(model)
+        return models
+
+
+    def _resolve_model_documents(self, model: dict[str, any]) -> dict[str, any]:
+        if isinstance(model['documents'], str):
+            model['documents'] = json.loads(model['documents'])
+
+        # model['documents'] = self._documents_name2url(model['documents'])
+        return model
+    
+
+    def _documents_name2url(self, documents: list[str]) -> dict[str, any]:
+        result = []
+        for doc in documents:
+            # Generate the URL for the uploaded image
+            image_url = self._get_document_url(doc)
+            result.append(image_url)
+        return result
+
+
+
+    
+    def _get_document_url(self, filename: str):
+        with current_app.app_context():
+            image_url = url_for('file', filename=filename, _external=True)
+        return image_url
+    
+
+    def _is_document_exists(self, filename: str) -> bool:
+        return os.path.exists(UPLOAD_FOLDER + filename)
+
+    def _save_documents(self, files: list[FileStorage]) -> list[str]:
+        result: list[str] = []
+        for file in files:
+            if file:
+                timestamp = datetime.datetime.now().isoformat()
+                file_extension = os.path.splitext(file.filename)[-1]
+                filename = f"{timestamp}{file_extension}"
+                
+                file.save(os.path.join(UPLOAD_FOLDER, filename))
+                
+                result.append(filename)
+        return result
+
+
+    def _delete_document(self, filename) -> bool:
+        if os.path.exists(filename):
+            return os.remove(filename) is None
+            
+        filename = os.path.join(UPLOAD_FOLDER, filename)
+        if os.path.exists(filename):
+            return os.remove(filename) is None
+        
+        return False
 
 
     @check_mysql_connection
-    def save_model(self, data, model_type) -> Union[dict[str, any], None]:
+    def save_model(self, model_type, data, files: list[FileStorage]) -> Union[dict[str, any], None]:
         """Saves a new model record based on the provided data and model type.
         Constructs the appropriate SQL query dynamically based on model schema."""
 
@@ -577,28 +645,32 @@ class Database:
         if 'id' in data:
             del data['id']
 
+        # Update `at` with current timestamp
+        data['at'] = datetime.datetime.now().isoformat()
+
+        docs = self._save_documents(files);
+        data['documents'] = json.dumps(docs)
+
         # Construct the SQL query dynamically based on data
         keys = data.keys()
         values = data.values()
+
         parameters = ", ".join([key for key in keys])
         arguments = ('%s, ' * len(keys))[0 : -2]
+        
         query = f'INSERT INTO {model_type} ({parameters}) VALUES ({arguments})'
 
-        try:
-            # Execute the query with combined data
-            self.cursor.execute(query, tuple(values))
-            self.connection.commit()
-            model_id = self.cursor.lastrowid
-            
-            # Return the saved model data
-            return self.get_model(model_type, model_id)
-        except mysql.connector.Error as err:
-            print("Database error while saving model:", err)
-            raise Exception(err.msg)
+        # Execute the query with combined data
+        self.cursor.execute(query, tuple(values))
+        self.connection.commit()
+        model_id = self.cursor.lastrowid
+        
+        # Return the saved model data
+        return self.get_model(model_type, model_id)
 
 
     @check_mysql_connection
-    def update_model(self, id: int, model_type: str, data: dict[str, any]) -> Union[dict[str, any], None]:
+    def update_model(self, id: int, model_type: str, data: dict[str, any], files: list[FileStorage]) -> Union[dict[str, any], None]:
         """Updates an existing model record based on the provided data."""
 
         if model_type not in ['Model1', 'Model2', 'Model3', 'Model4', 'Model5', 'Model6', 'Model7']:
@@ -609,23 +681,39 @@ class Database:
                 raise 'id != data["id"]'
             del data['id']
 
+        # Update `at` with current timestamp
+        data['at'] = datetime.datetime.now().isoformat()
+
         # Construct the SQL query dynamically based on data
         keys = data.keys()
         values = data.values()
 
+        docs = data['documents']
+        if isinstance(docs, str): docs = json.loads(docs)
+
+        # Get only documens existed in uplaods folder
+        documents = []
+        for doc in docs:
+            if self._is_document_exists(doc): documents.append(doc)
+
+        documents.extend(self._save_documents(files))
+        data['documents'] = json.dumps(documents)
+
+        exiting_model = self.get_model(model_type, id)
+        for doc in exiting_model['documents']:
+            if doc not in documents:
+                self._delete_document(doc)
+
         parameters = ", ".join([f'{key} = %s' for key in keys])
+
         query = f'UPDATE {model_type} SET {parameters} WHERE id = {id}'
 
-        try:
-            # Execute the query with combined data
-            self.cursor.execute(query, tuple(values))
-            self.connection.commit()
-            
-            # Return the saved model data
-            return self.get_model(model_type, id)
-        except mysql.connector.Error as err:
-            print("Database error while updating model:", err)
-            raise Exception(err.msg)
+        # Execute the query with combined data
+        self.cursor.execute(query, tuple(values))
+        self.connection.commit()
+        
+        # Return the saved model data
+        return self.get_model(model_type, id)
 
 
     @check_mysql_connection
@@ -634,6 +722,10 @@ class Database:
 
         if model_type not in ['Model1', 'Model2', 'Model3', 'Model4', 'Model5', 'Model6', 'Model7']:
             return jsonify({"error": INVALID_TYPE}), 400
+        
+        exiting_model = self.get_model(model_type, id)
+        for doc in exiting_model['documents']:
+            self._delete_document(doc)
 
         query = f'DELETE FROM {model_type} WHERE id = {id}'
 
@@ -649,7 +741,7 @@ class Database:
                 return jsonify({"error": MODEL_NOT_FOUND}), 404  # Model not found
         except mysql.connector.Error as err:
             print("Database error while deleting model:", err)
-            return jsonify({"error": DELETE_ERROR}), 500
+            return jsonify({"error": ERROR_DELETE_MODEL}), 500
 
 
     @check_mysql_connection

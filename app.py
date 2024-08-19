@@ -1,10 +1,12 @@
-from datetime import timedelta
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jti
 from flask_redis import FlaskRedis
 from db import Database
 from constants import *
 from waitress import serve
+from datetime import timedelta
+import json
+import os
 
 
 def create_app():
@@ -24,6 +26,8 @@ redis_store = FlaskRedis(app)
 
 db = Database()
 
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 @app.route('/', methods=['GET'])
 def check():
@@ -48,11 +52,11 @@ def login():
         return jsonify(access_token=access_token, current_user=user)
     return jsonify({"error": LOGIN_FAIL}), 404
 
+
 @app.route('/auto_login', methods=['POST'])
 @jwt_required()
 def auto_login():
     """Relogin using access_token."""
-    print('auto_login')
     username = get_jwt_identity()
     user = db.get_user_by_username(username)
     # user = None
@@ -117,6 +121,7 @@ def create_user():
             return jsonify(result), 201
         return jsonify({"error": ERROR_SAVE_USER}), 500
     except Exception as e:
+        print("Error create user:", e)
         return jsonify({"error": str(e)}), 500
 
 
@@ -138,6 +143,7 @@ def update_user(id):
             return jsonify(user), 201
         return jsonify({"error": ERROR_UPDATE_USER}), 400
     except Exception as e:
+        print("Error update user:", e)
         return jsonify({"error": str(e)}), 500
         
 
@@ -188,34 +194,41 @@ def search():
 @jwt_required()
 def create_model(model_type):
     """Creates a new model record based on the provided data."""
-    model_data = request.json
+
+    model_data = json.loads(request.form.get('data'))
+    files = request.files.getlist('files')    
     
     if not model_data:
         return jsonify({"error": MISSING_DATA}), 400
     
     try:
-        model = db.save_model(model_data, model_type)
+        model = db.save_model(model_type, model_data, files)
         if model:
             return jsonify(model), 201
         return jsonify({"error": ERROR_SAVE_MODEL}), 500
     except Exception as e:
+        print("Error create model:", e)
         return jsonify({'error': str(e)})
-        
+
 
 @app.route("/models/<model_type>/<int:id>", methods=["PUT"])
 @jwt_required()
 def update_model(model_type, id):
     """Updates an existing model record based on the provided data."""
-    model_data = request.json
+    model_data = json.loads(request.form.get('data'))
+    files = request.files.getlist('files')
+
     if not model_data:
         return jsonify({"error": MISSING_DATA}), 400
     
     try:
-        model = db.update_model(id, model_type, model_data)
+        model = db.update_model(id, model_type, model_data, files)
         if model:
             return jsonify(model), 201
         return jsonify({"error": ERROR_UPDATE_MODEL}), 500
     except Exception as e:
+        print("Error update model:", e)
+        raise e
         return jsonify({"error": str(e)}), 500
         
 
@@ -224,6 +237,11 @@ def update_model(model_type, id):
 def delete_model(model_type, id):
     """Deletes an existing model record based on its ID."""
     return db.delete_model(model_type, id)
+
+
+@app.route('/files/<filename>')
+def file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 
 @app.route('/backup', methods=['GET'])
@@ -238,8 +256,8 @@ def backup():
 # Run the Flask app
 def run():
     db.initialize()
-    serve(app, host='0.0.0.0', port=5000)
-    # app.run(host='0.0.0.0', port=5000, debug=True)
+    # serve(app, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
 
 
 
