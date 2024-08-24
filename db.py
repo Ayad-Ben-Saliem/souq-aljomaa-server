@@ -376,7 +376,7 @@ class Database:
                 # Model deleted successfully
                 return jsonify({'message': 'User deleted successfully'})
             else:
-                return jsonify({"error": MODEL_NOT_FOUND}), 404  # Model not found
+                return jsonify({"error": USER_NOT_FOUND}), 404  # User not found
         except mysql.connector.Error as err:
             print("Database error while deleting user:", err)
             return jsonify({"error": ERROR_DELETE_USER}), 500
