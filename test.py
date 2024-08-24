@@ -2,11 +2,12 @@ import os
 import requests
 
 
-token = ''
-if os.path.exists('token.jwt'):
-    with open('token.jwt', 'r') as f:
-        token = f.read()
-    
+def get_token():
+    result = ''
+    if os.path.exists('token.jwt'):
+        with open('token.jwt', 'r') as f:
+            result = f.read()
+    return result
 
 
 def login(username: str, password: str):
@@ -17,9 +18,18 @@ def login(username: str, password: str):
             'password': password,
         }
     )
-    print(response)
+
+    print('Login Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
+
 
     if response.status_code == 200:
         with open('token.jwt', 'w') as f:
@@ -29,11 +39,19 @@ def login(username: str, password: str):
 def auto_login():
     response = requests.post(
         'http://localhost:5000/auto_login',
-        headers={'Authorization': f'Bearer {token}'}
+        headers={'Authorization': f'Bearer {get_token()}'}
     )
-    print(response)
+
+    print('Auto Login Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
 
     if response.status_code == 200:
         with open('token.jwt', 'w') as f:
@@ -43,18 +61,23 @@ def auto_login():
 def logout() :
     response = requests.post(
         'http://localhost:5000/logout',
-        headers={'Authorization': f'Bearer {token}'},
+        headers={'Authorization': f'Bearer {get_token()}'},
     )
-    print(response)
+
+    print('Logout Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
 
     if response.status_code == 200:
         if os.path.exists('token.jwt'):
             os.remove('token.jwt')
-
-
-
 
 
 def get_models(modelsIds: dict[str, list[int]] = None) -> requests.Response:
@@ -66,28 +89,41 @@ def get_models(modelsIds: dict[str, list[int]] = None) -> requests.Response:
             }
     response = requests.get(
         'http://localhost:5000/models',
-        headers={'Authorization': f'Bearer {token}'},
+        headers={'Authorization': f'Bearer {get_token()}'},
         json={'modelsIds': modelsIds}
     )
 
-    print(response)
+    print('Get Models Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
 
     return response
-
 
 
 def search(search_text: str, limit: int = 10, offset: int = 0) -> requests.Response:
     response = requests.get(
         'http://localhost:5000/search',
-        headers={'Authorization': f'Bearer {token}'},
+        headers={'Authorization': f'Bearer {get_token()}'},
         params={'search_text': search_text, 'limit': limit, 'offset': offset}
     )
 
-    print(response)
+    print('Search Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
 
     return response
 
@@ -99,16 +135,22 @@ def create_user(data: dict[str, any] = None) -> requests.Response:
             'username': 'admin',
             'password': '1234',
         }
-    print(data)
     response = requests.post(
         'http://localhost:5000/users',
-        headers={'Authorization': f'Bearer {token}'},
+        headers={'Authorization': f'Bearer {get_token()}'},
         json=data
     )
     
-    print(response)
+    print('Create User Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
 
     return response
 
@@ -117,12 +159,19 @@ def create_user(data: dict[str, any] = None) -> requests.Response:
 def get_user(id: int) -> requests.Response:
     response = requests.get(
         f'http://localhost:5000/users/{id}',
-        headers={'Authorization': f'Bearer {token}'},
+        headers={'Authorization': f'Bearer {get_token()}'},
     )
     
-    print(response)
+    print('Get User Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
 
     return response
 
@@ -130,13 +179,20 @@ def get_user(id: int) -> requests.Response:
 def get_users(ids: list[int] = None) -> requests.Response:
     response = requests.get(
         'http://localhost:5000/users',
-        headers={'Authorization': f'Bearer {token}'},
+        headers={'Authorization': f'Bearer {get_token()}'},
         json={'ids': ids}
     )
     
-    print(response)
+    print('Get Users Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
 
     return response
 
@@ -153,13 +209,20 @@ def update_user(id: int = None, data: dict[str, any] = None) -> requests.Respons
     
     response = requests.put(
         f'http://localhost:5000/users/{id}',
-        headers={'Authorization': f'Bearer {token}'},
+        headers={'Authorization': f'Bearer {get_token()}'},
         json=data
     )
     
-    print(response)
+    print('Update User Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
 
     return response
 
@@ -167,29 +230,37 @@ def update_user(id: int = None, data: dict[str, any] = None) -> requests.Respons
 def delete_user(id: int) -> requests.Response:
     response = requests.delete(
         f'http://localhost:5000/users/{id}',
-        headers={'Authorization': f'Bearer {token}'}
+        headers={'Authorization': f'Bearer {get_token()}'}
     )
     
-    print(response)
+    print('Delete User Test ', end='')
     if 300 > response.status_code >= 200:
+        print('Passed.')
+        print(f'StatusCode ({response.status_code})')
         print(response.json())
+    else:
+        print('Fails.')
+        print(f'StatusCode ({response.status_code})')
+        print(response.json())
+    print()
 
     return response
 
 
-
 if __name__ == '__main__':
-    # login(username='admin', password='1234')
-    # auto_login()
+    login(username='admin', password='1234')
+    auto_login()
     # logout()
-    # get_models()
-    search(search_text='زواج')
-    # create_user(data={
-    #         'name': 'Ayad Ben',
-    #         'username': 'ayad',
-    #         'password': '1234',
-    #     })
+    get_models()
+    search(search_text='123')
+    create_user(
+        data={
+            'name': 'Ayad Ben',
+            'username': 'ayad',
+            'password': '1234',
+        }
+    )
     get_user(1)
-    # get_users(ids=[])
-    # update_user()
-    # delete_user(2)
+    get_users(ids=[])
+    update_user()
+    delete_user(2)
