@@ -8,6 +8,7 @@ import datetime
 import hashlib
 import json
 import os
+import re
 from typing import Union
 from functools import wraps
 
@@ -599,6 +600,11 @@ class Database:
 
 
 
+    # Function to sanitize filenames
+    def sanitize_filename(self, filename):
+        # Replace invalid characters with an underscore
+        return re.sub(r'[\\/:*?"<>|]', '_', filename)
+
     
     def _get_document_url(self, filename: str):
         with current_app.app_context():
@@ -616,6 +622,7 @@ class Database:
                 timestamp = datetime.datetime.now().isoformat()
                 file_extension = os.path.splitext(file.filename)[-1]
                 filename = f"{timestamp}{file_extension}"
+                filename = self.sanitize_filename(filename)
                 
                 file.save(os.path.join(UPLOAD_FOLDER, filename))
                 
