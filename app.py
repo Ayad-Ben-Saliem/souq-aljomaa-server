@@ -248,9 +248,9 @@ def file(filename):
 @jwt_required()
 def backup():
     password = request.json.get('password')
-    db.create_new_backup(password)
+    db.create_new_zip_backup(password)
 
-    return send_file('backup.db', as_attachment=True)
+    return send_file('backup.zip', as_attachment=True)
 
 
 # Run the Flask app

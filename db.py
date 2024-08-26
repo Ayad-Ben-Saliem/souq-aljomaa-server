@@ -724,7 +724,7 @@ class Database:
 
 
     @check_mysql_connection
-    def delete_model(self, model_type, id):
+    def delete_model(self, model_type: str, id: int):
         """Deletes an existing model record based on its ID."""
 
         if model_type not in ['Model1', 'Model2', 'Model3', 'Model4', 'Model5', 'Model6', 'Model7']:
@@ -751,25 +751,60 @@ class Database:
             return jsonify({"error": ERROR_DELETE_MODEL}), 500
 
 
-    @check_mysql_connection
-    def create_new_backup(self, password = None):
+    def create_new_zip_backup(self, password=None):
         import os
+        import pyzipper
+        from pyzipper import WZ_AES
+
+        backup = 'backup.zip'
+        database = 'database.db'
+        uploads = 'uploads\\'
+
+        # Remove existing backup file if it exists
+        if os.path.exists(backup):
+            os.remove(backup)
+            
+        # Create a new database backup
+        self.create_new_database_backup()
+
+        if password:
+            zipf = pyzipper.AESZipFile(backup, 'w', compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES)
+            zipf.setpassword(password.encode('utf-8'))
+        else:
+            zipf = pyzipper.ZipFile(backup, 'w', compression=pyzipper.ZIP_DEFLATED)
+            
+        # Add the single database file to the ZIP archive
+        zipf.write(database, os.path.basename(database))
+        
+        # Walk through the directory and add each file
+        for root, _, files in os.walk(uploads):
+            for file in files:
+                file_path = os.path.join(root, file)
+                # Compute the relative path of the file within the folder
+                relative_path = os.path.relpath(file_path, uploads)
+                # Create a path for the file within the 'uploads' folder in the ZIP archive
+                arcname = os.path.join('uploads', relative_path)
+                # Add file to the ZIP archive
+                zipf.write(file_path, arcname)
+        
+        zipf.close()
+
+
+
+    @check_mysql_connection
+    def create_new_database_backup(self):
         import sqlite3
-        import sqlcipher3
         import pandas as pd
+
+        database = 'database.db'
 
         self.cursor.execute("SHOW TABLES")
         tables = self.cursor.fetchall()
 
-        if os.path.exists('backup.db'):
-            os.remove('backup.db')
+        if os.path.exists(database):
+            os.remove(database)
 
-        if password:
-            # If your SQLCipher database requires a password, use it like this
-            sqlite_conn = sqlcipher3.connect('backup.db')
-            sqlite_conn.execute(f"PRAGMA key='{password}'")
-        else:
-            sqlite_conn = sqlite3.connect('backup.db')
+        sqlite_conn = sqlite3.connect(database)
 
         for table in tables:
             table_name = table['Tables_in_souq_aljomaa']
