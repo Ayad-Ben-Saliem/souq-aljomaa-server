@@ -2,7 +2,6 @@
 __pycache__/
 
 uploads/
-migrate_scanner2document/images
 migrate_scanner2document/images/
 migrate_scanner2document/backup.db
 

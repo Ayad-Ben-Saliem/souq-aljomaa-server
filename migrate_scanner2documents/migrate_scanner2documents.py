@@ -17,16 +17,17 @@ def copy_image(image_dir:str) -> str:
     if not image_dir.startswith("migrate_scanner2documents"):
         image_dir = os.path.join("migrate_scanner2documents", image_dir)
     
-    if os.path.isfile(image_dir):        
+    if os.path.isfile(image_dir):
         timestamp = datetime.datetime.now().isoformat()
         file_extension = os.path.splitext(image_dir)[-1]
-        filename = fr"uploads\{timestamp}{file_extension}"
+        filename = f"{timestamp}{file_extension}"
         
-        filename = os.path.join("uploads", sanitize_filename(filename))
+        filename = sanitize_filename(filename)
             
-        shutil.copy2(image_dir, filename)
+        shutil.copy2(image_dir, f"uploads\\{filename}")
         
         return filename
+    return None
 
 
 def migrate(cursor: Cursor, table_name):
@@ -39,17 +40,16 @@ def migrate(cursor: Cursor, table_name):
             scanner: str = row[1]
             image_dir = scanner.split('\\AppData\\Roaming\\com.example\\souq_aljomaa\\SouqAljomaa\\')[1]
             
-            image_dir = copy_image(image_dir)
-            
-            if image_dir:
-                # If image_dir not None
-                cursor.execute(f'UPDATE {table_name} SET scanner = \'["{image_dir}"]\' WHERE id = {id};')
+            filename = copy_image(image_dir)
+            filename = filename if filename is not None else ''
+
+            cursor.execute(f'UPDATE {table_name} SET scanner = \'["{filename}"]\' WHERE id = {id};')
+
         cursor.execute(f"ALTER TABLE {table_name} RENAME COLUMN scanner TO documents;")
         
     except Exception as e:
         print(traceback.format_exc())
         
-
 
 def main():
     try:

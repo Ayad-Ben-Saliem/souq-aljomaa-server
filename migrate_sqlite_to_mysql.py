@@ -53,15 +53,14 @@ try:
     mysql_conn = mysql.connector.connect(
         host='localhost',
         database='souq_aljomaa',
-        user='root',
-        password='A5355850d.'
+        user='manassa',
+        password='M@na55a.ly'
     )
     if mysql_conn.is_connected():
         print("Connected to MySQL database")
         
         # Migrate data from SQLite databases to MySQL
-        migrate_sqlite_to_mysql('database1.db', mysql_conn)
-        migrate_sqlite_to_mysql('database2.db', mysql_conn)
+        migrate_sqlite_to_mysql('migrate_scanner2documents\\backup.db', mysql_conn)
         
 except Error as e:
     print(f"Error: {e}")
