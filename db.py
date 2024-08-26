@@ -754,7 +754,6 @@ class Database:
     def create_new_zip_backup(self, password=None):
         import os
         import pyzipper
-        from pyzipper import WZ_AES
 
         backup = 'backup.zip'
         database = 'database.db'
